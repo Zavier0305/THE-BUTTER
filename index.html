@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BUTTER | 究極のトースト職人</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700&family=JetBrains+Mono:wght@100;400&family=Noto+Sans+JP:wght@100;300;700&display=swap');
+
+        :root {
+            --accent: #ff9d00;
+            --bg: #0b0b0d;
+            --butter-fresh: #fff9c4;
+            --butter-melt: #fbc02d;
+            --toast-crust: #5d4037;
+            --toast-inner: #fffde7;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(80, 50, 30, 0.15) 0%, transparent 80%),
+                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='%23000' fill-opacity='0'/%3E%3Cpath d='M30 30L0 60V0L30 30zM60 0v60L30 30 60 0z' fill='%23ffffff' fill-opacity='0.02'/%3E%3C/svg%3E");
+            color: #e2e8f0;
+            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            touch-action: none;
+            user-select: none;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #canvas-wrapper {
+            position: relative;
+            background: #000;
+            padding: 1px;
+            border-radius: 24px;
+            box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.9), 0 0 40px rgba(255, 157, 0, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            border-radius: 23px;
+        }
+
+        /* UI Elements */
+        .hud {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+            right: 40px;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .stat-group {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(20px);
+            padding: 14px 24px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 9px;
+            letter-spacing: 0.4em;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 32px;
+            font-weight: 100;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .gauge-container {
+            position: absolute;
+            bottom: 40px;
+            left: 100px;
+            right: 100px;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            z-index: 10;
+        }
+
+        #gauge-fill {
+            height: 100%;
+            background: #fff;
+            width: 100%;
+            box-shadow: 0 0 10px #fff;
+            transition: width 0.1s linear;
+        }
+
+        /* Modern Modal */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 5, 7, 0.98);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(30px);
+        }
+
+        .modal-inner {
+            text-align: center;
+            max-width: 520px;
+            width: 85%;
+            animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.98) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .title-area {
+            margin-bottom: 80px;
+        }
+
+        .main-title {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 56px;
+            font-weight: 100;
+            letter-spacing: 0.8em;
+            color: #fff;
+            margin-left: 0.8em;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+        }
+
+        .sub-title {
+            font-size: 11px;
+            letter-spacing: 1.2em;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-top: 20px;
+            opacity: 0.8;
+        }
+
+        .instruction-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 40px;
+            border-radius: 24px;
+            margin-bottom: 50px;
+            text-align: left;
+        }
+
+        .instruction-item {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .instruction-item:last-child { margin-bottom: 0; }
+
+        .num {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 11px;
+            color: var(--accent);
+            width: 30px;
+            font-weight: 400;
+        }
+
+        .desc {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 300;
+            line-height: 1.6;
+        }
+
+        .btn-start {
+            background: #fff;
+            color: #000;
+            padding: 24px 80px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.4em;
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .btn-start:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 20px 50px rgba(255, 157, 0, 0.3);
+        }
+
+        .btn-share {
+            background: transparent;
+            color: #fff;
+            padding: 22px 40px;
+            border-radius: 50px;
+            font-size: 11px;
+            font-weight: 400;
+            letter-spacing: 0.2em;
+            transition: all 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            text-transform: uppercase;
+            margin-left: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-share:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .difficulty-selector {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .diff-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.3);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-size: 9px;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.3s;
+            letter-spacing: 0.2em;
+        }
+
+        .diff-btn.active {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+
+<div id="canvas-wrapper">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="hud">
+        <div class="stat-group">
+            <span class="stat-label">Coverage</span>
+            <span class="stat-value"><span id="coverage">0</span><small class="text-xs ml-1 opacity-40">%</small></span>
+        </div>
+        <div class="stat-group text-right">
+            <span class="stat-label">Remaining</span>
+            <span class="stat-value"><span id="timer">30.0</span><small class="text-xs ml-1 opacity-40">s</small></span>
+        </div>
+    </div>
+
+    <div class="gauge-container">
+        <div id="gauge-fill"></div>
+    </div>
+</div>
+
+<!-- START MODAL -->
+<div id="start-modal" class="modal">
+    <div class="modal-inner">
+        <div class="title-area">
+            <h1 class="main-title">BUTTER</h1>
+            <p class="sub-title">究極のトースト職人体験</p>
+        </div>
+        
+        <div class="instruction-card">
+            <div class="instruction-item">
+                <span class="num">01</span>
+                <span class="desc">ドラッグでバターを導き、パン全体に広げる</span>
+            </div>
+            <div class="instruction-item">
+                <span class="num">02</span>
+                <span class="desc">パンの「耳」を越えてはいけない</span>
+            </div>
+            <div class="instruction-item">
+                <span class="num">03</span>
+                <span class="desc">白い粒子に触れると、バターが補充される</span>
+            </div>
+        </div>
+
+        <div class="difficulty-selector">
+            <button onclick="setDifficulty(0.7)" id="diff-low" class="diff-btn">SOFT</button>
+            <button onclick="setDifficulty(1.0)" id="diff-mid" class="diff-btn active">NORMAL</button>
+            <button onclick="setDifficulty(1.4)" id="diff-high" class="diff-btn">HARD</button>
+        </div>
+
+        <button onclick="startGame()" class="btn-start">職人修行を開始する</button>
+    </div>
+</div>
+
+<!-- RESULT MODAL -->
+<div id="result-modal" class="modal" style="display: none;">
+    <div class="modal-inner">
+        <span class="stat-label mb-4">Final Coverage</span>
+        <div id="result-score" class="text-9xl font-thin text-white mb-10">0%</div>
+        <div id="result-rank" class="stat-label mb-16 text-white opacity-60">ANALYSIS COMPLETE</div>
+        
+        <div class="flex items-center justify-center gap-4">
+            <button onclick="resetGame()" class="btn-start">もう一度焼く</button>
+            <button onclick="shareOnX()" class="btn-share">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                結果を共有
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const coverageEl = document.getElementById('coverage');
+    const timerEl = document.getElementById('timer');
+    const gaugeFill = document.getElementById('gauge-fill');
+    const startModal = document.getElementById('start-modal');
+    const resultModal = document.getElementById('result-modal');
+    
+    // カラー設定
+    const COLOR_BUTTER_FRESH = '#fff9c4'; 
+    const COLOR_BUTTER_MELT = '#fbc02d';  
+
+    let toast = { x: 0, y: 0, w: 0, h: 0, radius: 50 };
+    let butter = { x: 0, y: 0, initialSize: 60, size: 60, vx: 0, vy: 0, ax: 0, ay: 0 };
+    let isDragging = false;
+    let timeLeft = 30;
+    let gameActive = false;
+    let lastTime = 0;
+    let totalToastPixels = 1;
+    let bonusItems = [];
+    let meltSpeed = 4.2;
+    let finalScore = 0;
+    let finalRankText = "";
+
+    const paintCanvas = document.createElement('canvas');
+    const pCtx = paintCanvas.getContext('2d');
+
+    function setDifficulty(multiplier) {
+        meltSpeed = 4.2 * multiplier;
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+        if(multiplier < 0.8) document.getElementById('diff-low').classList.add('active');
+        else if(multiplier > 1.2) document.getElementById('diff-high').classList.add('active');
+        else document.getElementById('diff-mid').classList.add('active');
+    }
+
+    function resize() {
+        const windowW = window.innerWidth || 800;
+        const windowH = window.innerHeight || 600;
+        const size = Math.max(200, Math.min(windowW * 0.9, windowH * 0.8, 600));
+        
+        canvas.width = size;
+        canvas.height = size;
+        toast.w = size * 0.7;
+        toast.h = size * 0.72;
+        toast.x = (canvas.width - toast.w) / 2;
+        toast.y = (canvas.height - toast.h) / 2;
+        
+        paintCanvas.width = canvas.width;
+        paintCanvas.height = canvas.height;
+        
+        if (canvas.width > 0 && canvas.height > 0) {
+            calculateTotalPixels();
+        }
+    }
+
+    function calculateTotalPixels() {
+        if (canvas.width <= 0 || canvas.height <= 0) return;
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tCtx = tempCanvas.getContext('2d');
+        drawToastShape(tCtx, toast.x, toast.y, toast.w, toast.h, toast.radius);
+        tCtx.fillStyle = 'black';
+        tCtx.fill();
+        try {
+            const imgData = tCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height).data;
+            let count = 0;
+            for (let i = 3; i < imgData.length; i += 4) {
+                if (imgData[i] > 0) count++;
+            }
+            totalToastPixels = count || 1;
+        } catch (e) {
+            totalToastPixels = 10000; 
+        }
+    }
+
+    function drawToastShape(t, x, y, w, h, r) {
+        t.beginPath();
+        t.moveTo(x + r, y);
+        t.quadraticCurveTo(x + w/2, y - 20, x + w - r, y);
+        t.quadraticCurveTo(x + w, y, x + w, y + r);
+        t.quadraticCurveTo(x + w + 8, y + h/2, x + w, y + h - r);
+        t.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        t.lineTo(x + r, y + h);
+        t.quadraticCurveTo(x, y + h, x, y + h - r);
+        t.quadraticCurveTo(x - 8, y + h/2, x, y + r);
+        t.quadraticCurveTo(x, y, x + r, y);
+        t.closePath();
+    }
+
+    function startGame() {
+        startModal.style.display = 'none';
+        resetGame();
+    }
+
+    function resetGame() {
+        resize();
+        butter.initialSize = canvas.width * 0.08;
+        butter.size = butter.initialSize;
+        butter.x = canvas.width / 2;
+        butter.y = canvas.height / 2;
+        butter.vx = 0; butter.vy = 0; butter.ax = 0; butter.ay = 0;
+        timeLeft = 30;
+        gameActive = true;
+        bonusItems = [];
+        resultModal.style.display = 'none';
+        pCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function handleInput(clientX, clientY) {
+        if(!gameActive) return;
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+        const mouseY = (clientY - rect.top) * (canvas.height / rect.height);
+        const dist = Math.hypot(mouseX - butter.x, mouseY - butter.y);
+        if(dist < butter.size * 6) {
+            isDragging = true;
+            const friction = Math.max(0.1, butter.size / butter.initialSize);
+            butter.ax += (mouseX - butter.x) * (0.8 / friction);
+            butter.ay += (mouseY - butter.y) * (0.8 / friction);
+        }
+    }
+
+    canvas.addEventListener('mousedown', (e) => handleInput(e.clientX, e.clientY));
+    window.addEventListener('mousemove', (e) => { if(isDragging) handleInput(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', () => isDragging = false);
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+    window.addEventListener('touchmove', (e) => { if(isDragging) { e.preventDefault(); handleInput(e.touches[0].clientX, e.touches[0].clientY); } }, {passive: false});
+    window.addEventListener('touchend', () => isDragging = false);
+
+    function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp;
+        const dt = Math.min(0.1, (timestamp - lastTime) / 1000);
+        lastTime = timestamp;
+        if (gameActive) update(dt);
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function update(dt) {
+        if (dt <= 0) return;
+        const resistance = 0.25;
+        butter.vx += butter.ax * dt;
+        butter.vy += butter.ay * dt;
+        butter.vx *= (1 - resistance);
+        butter.vy *= (1 - resistance);
+        butter.x += butter.vx;
+        butter.y += butter.vy;
+        butter.ax *= 0.1;
+        butter.ay *= 0.1;
+
+        butter.size -= dt * meltSpeed; 
+        gaugeFill.style.width = `${Math.max(0, (butter.size / butter.initialSize) * 100)}%`;
+        
+        if (butter.size < 1) endGame("EXHAUSTED", "BUTTER DEPLETED");
+        
+        const checkCanvas = document.createElement('canvas');
+        checkCanvas.width = canvas.width;
+        checkCanvas.height = canvas.height;
+        const checkCtx = checkCanvas.getContext('2d');
+        drawToastShape(checkCtx, toast.x, toast.y, toast.w, toast.h, toast.radius);
+        if (!checkCtx.isPointInPath(butter.x, butter.y)) {
+            endGame("OUT OF BOUNDS", "STAY ON THE BREAD");
+        }
+
+        if (Math.hypot(butter.vx, butter.vy) > 0.1 || isDragging) {
+            pCtx.save();
+            drawToastShape(pCtx, toast.x, toast.y, toast.w, toast.h, toast.radius);
+            pCtx.clip();
+            pCtx.globalAlpha = 0.45; 
+            pCtx.fillStyle = COLOR_BUTTER_MELT;
+            pCtx.beginPath();
+            pCtx.arc(butter.x, butter.y, butter.size * 0.9, 0, Math.PI * 2);
+            pCtx.fill();
+            pCtx.restore();
+        }
+
+        bonusItems = bonusItems.filter(item => {
+            if (Math.hypot(item.x - butter.x, item.y - butter.y) < butter.size) {
+                butter.size = Math.min(butter.initialSize * 1.5, butter.size + (butter.initialSize * 0.25));
+                return false;
+            }
+            return true;
+        });
+
+        if (Math.random() < 0.02 && bonusItems.length < 5) {
+            bonusItems.push({ x: toast.x + 80 + Math.random() * (toast.w - 160), y: toast.y + 80 + Math.random() * (toast.h - 160), size: 2 });
+        }
+
+        timeLeft -= dt;
+        timerEl.innerText = Math.max(0, timeLeft).toFixed(1);
+        if (timeLeft <= 0) endGame("COMPLETE", getRank(getCoverage()));
+        coverageEl.innerText = getCoverage();
+    }
+
+    function getCoverage() {
+        if (paintCanvas.width <= 0 || paintCanvas.height <= 0) return 0;
+        try {
+            const imgData = pCtx.getImageData(0, 0, paintCanvas.width, paintCanvas.height).data;
+            let painted = 0;
+            for (let i = 3; i < imgData.length; i += 4) {
+                if (imgData[i] > 100) painted++;
+            }
+            return Math.min(100, Math.floor((painted / totalToastPixels) * 100));
+        } catch (e) { return 0; }
+    }
+
+    function getRank(score) {
+        if(score >= 98) return "PERFECT SPREAD";
+        if(score >= 90) return "MASTERPIECE";
+        if(score >= 70) return "WELL DONE";
+        return "MORE BUTTER NEEDED";
+    }
+
+    function endGame(title, msg) {
+        gameActive = false;
+        isDragging = false;
+        finalScore = getCoverage();
+        finalRankText = msg;
+        document.getElementById('result-score').innerText = finalScore + "%";
+        document.getElementById('result-rank').innerText = msg;
+        resultModal.style.display = 'flex';
+    }
+
+    function shareOnX() {
+        let flavorText = "";
+        if (finalScore >= 98) flavorText = "神の塗り。黄金に輝く究極のトーストが今、爆誕した。";
+        else if (finalScore >= 90) flavorText = "これぞ職人技。角までしっかり、妥協なきバター。";
+        else if (finalScore >= 70) flavorText = "なかなかの仕上がり。香ばしい香りが漂ってきそうだ。";
+        else if (finalScore >= 40) flavorText = "まだパンの白さが目立つ。修行して出直してこよう。";
+        else flavorText = "バター、どこに消えた？リベンジを誓う。";
+
+        const text = encodeURIComponent(
+            `🍞 【THE BUTTER】トースト職人の朝は早い 🧈\n\n` +
+            `${flavorText}\n\n` +
+            `塗り面積: ${finalScore}%\n` +
+            `評価: ${finalRankText}\n\n` +
+            `#THEBUTTER #トースト職人 #ToastArt`
+        );
+        const url = `https://twitter.com/intent/tweet?text=${text}`;
+        window.open(url, '_blank');
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.shadowBlur = 60;
+        ctx.shadowColor = 'rgba(0,0,0,0.85)';
+        ctx.fillStyle = '#1a0f00'; 
+        drawToastShape(ctx, toast.x, toast.y + 15, toast.w, toast.h, toast.radius);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        const crustGrad = ctx.createLinearGradient(toast.x, toast.y, toast.x + toast.w, toast.y + toast.h);
+        crustGrad.addColorStop(0, '#5d4037'); crustGrad.addColorStop(0.5, '#4e342e'); crustGrad.addColorStop(1, '#3e2723');
+        ctx.fillStyle = crustGrad;
+        drawToastShape(ctx, toast.x, toast.y, toast.w, toast.h, toast.radius);
+        ctx.fill();
+
+        ctx.save();
+        const m = 14;
+        drawToastShape(ctx, toast.x + m, toast.y + m, toast.w - m*2, toast.h - m*2, toast.radius - 8);
+        ctx.clip();
+        const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, toast.w/10, canvas.width/2, canvas.height/2, toast.w * 0.7);
+        grad.addColorStop(0, '#fffde7'); grad.addColorStop(0.6, '#fff9c4'); grad.addColorStop(0.85, '#ffe082'); grad.addColorStop(1, '#ffb74d'); 
+        ctx.fillStyle = grad;
+        ctx.fillRect(0,0,canvas.width,canvas.height);
+
+        for(let i=0; i<800; i++) {
+            const rx = toast.x + (Math.sin(i * 17) * 0.5 + 0.5) * toast.w;
+            const ry = toast.y + (Math.cos(i * 13) * 0.5 + 0.5) * toast.h;
+            ctx.fillStyle = i % 3 === 0 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.3)';
+            ctx.beginPath(); ctx.arc(rx, ry, Math.random() * 1.8, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.drawImage(paintCanvas, 0, 0);
+        ctx.restore();
+
+        bonusItems.forEach(item => {
+            ctx.fillStyle = '#fff'; ctx.shadowBlur = 15; ctx.shadowColor = 'rgba(255,255,255,0.8)';
+            ctx.beginPath(); ctx.arc(item.x, item.y, item.size, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+        });
+
+        if (gameActive) {
+            const bS = butter.size;
+            ctx.save();
+            ctx.translate(butter.x, butter.y);
+            ctx.rotate(Math.atan2(butter.vy, butter.vx) * 0.15);
+            ctx.fillStyle = '#fff59d'; ctx.shadowBlur = 30; ctx.shadowColor = 'rgba(255, 235, 59, 0.4)';
+            const r = 6;
+            ctx.beginPath(); ctx.moveTo(-bS/2+r, -bS/2); ctx.lineTo(bS/2-r, -bS/2); ctx.quadraticCurveTo(bS/2, -bS/2, bS/2, -bS/2+r); ctx.lineTo(bS/2, bS/2-r); ctx.quadraticCurveTo(bS/2, bS/2, bS/2-r, bS/2); ctx.lineTo(-bS/2+r, bS/2); ctx.quadraticCurveTo(-bS/2, bS/2, -bS/2, bS/2-r); ctx.lineTo(-bS/2, -bS/2+r); ctx.quadraticCurveTo(-bS/2, -bS/2, -bS/2+r, -bS/2); ctx.fill();
+            ctx.fillStyle = '#ffffff'; ctx.globalAlpha = 0.5; ctx.fillRect(-bS/2 + 4, -bS/2 + 4, bS/2.5, bS/6);
+            ctx.restore();
+        }
+    }
+
+    window.addEventListener('resize', resize);
+    window.onload = () => { resize(); draw(); };
+</script>
+
+</body>
+</html>
