@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE BUTTER | 究極のトースト職人</title>
+    <meta name="description" content="ドラッグでバターを操り、トーストにどこまで均一に塗り広げられるかを競うゲーム。結果はXでシェアできます。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://the-butter.vercel.app/">
+    <meta property="og:title" content="THE BUTTER | 究極のトースト職人">
+    <meta property="og:description" content="ドラッグでバターを操り、トーストにどこまで均一に塗り広げられるかを競うゲーム。結果はXでシェアできます。">
+    <meta name="twitter:card" content="summary">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700&family=JetBrains+Mono:wght@100;400&family=Noto+Sans+JP:wght@100;300;700&family=Shippori+Mincho:wght@700&display=swap');
@@ -253,6 +259,12 @@
             color: #fff;
             background: rgba(255, 255, 255, 0.05);
         }
+
+        /* キーボード操作時の既定の青いアウトラインは、この暗い画面では浮いて見えるため */
+        button:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
+        }
     </style>
 </head>
 <body>
@@ -345,14 +357,42 @@
     let timeLeft = 30;
     let gameActive = false;
     let lastTime = 0;
+    let loopRunning = false; // 「もう一度焼く」等の連打でrequestAnimationFrameのループが多重に走るのを防ぐ
     let totalToastPixels = 1;
     let bonusItems = [];
     let meltSpeed = 4.2;
     let finalScore = 0;
+    // getCoverage()は毎回全ピクセルをgetImageDataで読むため重い。
+    // 表示上は毎フレーム(60fps)更新する必要がないので間引く。
+    let coverageCheckTimer = 0;
+    let cachedCoverage = 0;
     let finalRankText = "";
 
     const paintCanvas = document.createElement('canvas');
     const pCtx = paintCanvas.getContext('2d');
+
+    // トーストの焼き色グラデーション+粒々のテクスチャは、toastの位置・
+    // サイズが変わらない限り毎フレーム同じ絵になるのに、毎フレーム
+    // (60fps)グラデーション生成+800個の円をfillし直していて重かった。
+    // resize()の時に1回だけ描いてキャッシュし、毎フレームはdrawImageで
+    // 使い回す。
+    const toastSurfaceCanvas = document.createElement('canvas');
+    const tsCtx = toastSurfaceCanvas.getContext('2d');
+    function renderToastSurface() {
+        toastSurfaceCanvas.width = canvas.width;
+        toastSurfaceCanvas.height = canvas.height;
+        const grad = tsCtx.createRadialGradient(canvas.width/2, canvas.height/2, toast.w/10, canvas.width/2, canvas.height/2, toast.w * 0.7);
+        grad.addColorStop(0, '#fffde7'); grad.addColorStop(0.6, '#fff9c4'); grad.addColorStop(0.85, '#ffe082'); grad.addColorStop(1, '#ffb74d');
+        tsCtx.fillStyle = grad;
+        tsCtx.fillRect(0, 0, toastSurfaceCanvas.width, toastSurfaceCanvas.height);
+
+        for (let i = 0; i < 800; i++) {
+            const rx = toast.x + (Math.sin(i * 17) * 0.5 + 0.5) * toast.w;
+            const ry = toast.y + (Math.cos(i * 13) * 0.5 + 0.5) * toast.h;
+            tsCtx.fillStyle = i % 3 === 0 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.3)';
+            tsCtx.beginPath(); tsCtx.arc(rx, ry, 0.9, 0, Math.PI * 2); tsCtx.fill();
+        }
+    }
 
     function setDifficulty(multiplier) {
         meltSpeed = 4.2 * multiplier;
@@ -376,10 +416,31 @@
         
         paintCanvas.width = canvas.width;
         paintCanvas.height = canvas.height;
-        
+        updateToastPath();
+        renderToastSurface();
+
         if (canvas.width > 0 && canvas.height > 0) {
             calculateTotalPixels();
         }
+    }
+
+    // トーストの形はresize時にしか変わらないのに、毎フレーム(60fps)
+    // 新しいcanvasを作ってisPointInPath判定していたため重かった。
+    // 形状が変わった時だけPath2Dを作り直し、毎フレームは使い回す。
+    let toastPath = null;
+    function updateToastPath() {
+        toastPath = new Path2D();
+        const { x, y, w, h, radius: r } = toast;
+        toastPath.moveTo(x + r, y);
+        toastPath.quadraticCurveTo(x + w / 2, y - 20, x + w - r, y);
+        toastPath.quadraticCurveTo(x + w, y, x + w, y + r);
+        toastPath.quadraticCurveTo(x + w + 8, y + h / 2, x + w, y + h - r);
+        toastPath.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        toastPath.lineTo(x + r, y + h);
+        toastPath.quadraticCurveTo(x, y + h, x, y + h - r);
+        toastPath.quadraticCurveTo(x - 8, y + h / 2, x, y + r);
+        toastPath.quadraticCurveTo(x, y, x + r, y);
+        toastPath.closePath();
     }
 
     function calculateTotalPixels() {
@@ -435,7 +496,10 @@
         resultModal.style.display = 'none';
         pCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
         lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
     }
 
     function handleInput(clientX, clientY) {
@@ -485,12 +549,7 @@
         
         if (butter.size < 1) endGame("EXHAUSTED", "BUTTER DEPLETED");
         
-        const checkCanvas = document.createElement('canvas');
-        checkCanvas.width = canvas.width;
-        checkCanvas.height = canvas.height;
-        const checkCtx = checkCanvas.getContext('2d');
-        drawToastShape(checkCtx, toast.x, toast.y, toast.w, toast.h, toast.radius);
-        if (!checkCtx.isPointInPath(butter.x, butter.y)) {
+        if (!ctx.isPointInPath(toastPath, butter.x, butter.y)) {
             endGame("OUT OF BOUNDS", "STAY ON THE BREAD");
         }
 
@@ -520,8 +579,14 @@
 
         timeLeft -= dt;
         timerEl.innerText = Math.max(0, timeLeft).toFixed(1);
-        if (timeLeft <= 0) endGame("COMPLETE", getRank(getCoverage()));
-        coverageEl.innerText = getCoverage();
+        if (timeLeft <= 0) { endGame("COMPLETE", getRank(getCoverage())); return; }
+
+        coverageCheckTimer += dt;
+        if (coverageCheckTimer >= 0.15) {
+            coverageCheckTimer = 0;
+            cachedCoverage = getCoverage();
+        }
+        coverageEl.innerText = cachedCoverage;
     }
 
     function getCoverage() {
@@ -568,7 +633,10 @@
             `評価: ${finalRankText}\n\n` +
             `#THEBUTTER #トースト職人 #ToastArt`
         );
-        const url = `https://twitter.com/intent/tweet?text=${text}`;
+        // urlパラメータが無いと、投稿されるツイートにゲームへのリンクが
+        // 一切含まれず、シェアしても誰も遊びに来られなかった
+        const gameUrl = encodeURIComponent('https://the-butter.vercel.app/');
+        const url = `https://twitter.com/intent/tweet?text=${text}&url=${gameUrl}`;
         window.open(url, '_blank');
     }
 
@@ -591,17 +659,7 @@
         const m = 14;
         drawToastShape(ctx, toast.x + m, toast.y + m, toast.w - m*2, toast.h - m*2, toast.radius - 8);
         ctx.clip();
-        const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, toast.w/10, canvas.width/2, canvas.height/2, toast.w * 0.7);
-        grad.addColorStop(0, '#fffde7'); grad.addColorStop(0.6, '#fff9c4'); grad.addColorStop(0.85, '#ffe082'); grad.addColorStop(1, '#ffb74d'); 
-        ctx.fillStyle = grad;
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-
-        for(let i=0; i<800; i++) {
-            const rx = toast.x + (Math.sin(i * 17) * 0.5 + 0.5) * toast.w;
-            const ry = toast.y + (Math.cos(i * 13) * 0.5 + 0.5) * toast.h;
-            ctx.fillStyle = i % 3 === 0 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.3)';
-            ctx.beginPath(); ctx.arc(rx, ry, Math.random() * 1.8, 0, Math.PI*2); ctx.fill();
-        }
+        ctx.drawImage(toastSurfaceCanvas, 0, 0);
         ctx.drawImage(paintCanvas, 0, 0);
         ctx.restore();
 
@@ -623,7 +681,13 @@
         }
     }
 
-    window.addEventListener('resize', resize);
+    // resize()はcanvas/paintCanvasの再生成(塗った跡が全部消える)とtoastの
+    // 再配置を伴う。モバイルではアドレスバーの表示/非表示だけでも
+    // window.innerHeightが変わりresizeイベントが発火するため、対策なしだと
+    // プレイ中に突然塗った跡が消えたり、バターの座標がトーストの外に
+    // 出て理不尽に「OUT OF BOUNDS」で終了することがあった。
+    // ラウンド中はリサイズを無視し、開始前・終了後のみ反映する。
+    window.addEventListener('resize', () => { if (!gameActive) resize(); });
     window.onload = () => { resize(); draw(); };
 </script>
 
