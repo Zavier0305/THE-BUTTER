@@ -10,13 +10,25 @@
     <meta property="og:title" content="THE BUTTER | 究極のトースト職人">
     <meta property="og:description" content="ドラッグでバターを操り、トーストにどこまで均一に塗り広げられるかを競うゲーム。結果はXでシェアできます。">
     <meta name="twitter:card" content="summary">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700&family=JetBrains+Mono:wght@100;400&family=Noto+Sans+JP:wght@100;300;700&family=Shippori+Mincho:wght@700&display=swap');
-
         :root {
-            --accent: #a97a1f;
-            --bg: #0b0b0d;
+            /* meishi design system (shared with the portfolio home) */
+            --bg: #faf5ec;
+            --surface: #fffdf9;
+            --ink: #2b2420;
+            --ink-soft: #7a6f61;
+            --ink-faint: #7c6c56;
+            --maroon: #7a0000;
+            --maroon-dark: #560000;
+            --gold: #a97a1f;
+            --gold-soft: #cda75a;
+            --border: #ddd0ba;
+
+            /* used only by the toast/butter canvas rendering below — untouched */
             --butter-fresh: #fff9c4;
             --butter-melt: #fbc02d;
             --toast-crust: #5d4037;
@@ -24,12 +36,9 @@
         }
 
         body {
-            background-color: var(--bg);
-            background-image: 
-                radial-gradient(circle at 50% 50%, rgba(80, 50, 30, 0.15) 0%, transparent 80%),
-                url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h60v60H0z' fill='%23000' fill-opacity='0'/%3E%3Cpath d='M30 30L0 60V0L30 30zM60 0v60L30 30 60 0z' fill='%23ffffff' fill-opacity='0.02'/%3E%3C/svg%3E");
-            color: #e2e8f0;
-            font-family: 'Inter', 'Noto Sans JP', sans-serif;
+            background: repeating-linear-gradient(135deg, rgba(169,122,31,0.035) 0px, rgba(169,122,31,0.035) 1px, transparent 1px, transparent 16px), var(--bg);
+            color: var(--ink);
+            font-family: 'Noto Sans JP', sans-serif;
             touch-action: none;
             user-select: none;
             overflow: hidden;
@@ -42,18 +51,30 @@
 
         #canvas-wrapper {
             position: relative;
-            background: #000;
-            padding: 1px;
-            border-radius: 24px;
-            box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.9), 0 0 40px rgba(169, 122, 31, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--surface);
+            padding: 8px;
+            border-radius: 10px;
+            box-shadow: 0 20px 50px -20px rgba(43, 36, 32, 0.25);
+            border: 1px solid var(--border);
         }
 
         canvas {
             display: block;
             cursor: crosshair;
-            border-radius: 23px;
+            border-radius: 4px;
         }
+
+        /* corner-bracket accent used on prominent panels (meishi motif) */
+        .corner-mark {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--gold);
+            opacity: 0.55;
+            pointer-events: none;
+        }
+        .corner-mark.tl { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+        .corner-mark.br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
 
         /* UI Elements */
         .hud {
@@ -68,28 +89,29 @@
         }
 
         .stat-group {
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(20px);
-            padding: 14px 24px;
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--surface);
+            padding: 12px 22px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 6px 16px -8px rgba(43, 36, 32, 0.2);
         }
 
         .stat-label {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'Noto Sans JP', sans-serif;
             font-size: 9px;
-            letter-spacing: 0.4em;
-            color: rgba(255, 255, 255, 0.4);
+            font-weight: 700;
+            letter-spacing: 0.3em;
+            color: var(--ink-faint);
             text-transform: uppercase;
             margin-bottom: 4px;
             display: block;
         }
 
         .stat-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 32px;
-            font-weight: 100;
-            color: #fff;
+            font-family: 'Shippori Mincho', serif;
+            font-size: 30px;
+            font-weight: 700;
+            color: var(--maroon);
             line-height: 1;
         }
 
@@ -98,16 +120,15 @@
             bottom: 40px;
             left: 100px;
             right: 100px;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.1);
+            height: 2px;
+            background: var(--border);
             z-index: 10;
         }
 
         #gauge-fill {
             height: 100%;
-            background: #fff;
+            background: linear-gradient(90deg, var(--gold-soft), var(--maroon));
             width: 100%;
-            box-shadow: 0 0 10px #fff;
             transition: width 0.1s linear;
         }
 
@@ -115,18 +136,24 @@
         .modal {
             position: fixed;
             inset: 0;
-            background: rgba(5, 5, 7, 0.98);
+            background: rgba(250, 245, 236, 0.94);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 100;
-            backdrop-filter: blur(30px);
+            backdrop-filter: blur(6px);
         }
 
         .modal-inner {
+            position: relative;
             text-align: center;
             max-width: 520px;
             width: 85%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 48px 40px;
+            box-shadow: 0 30px 60px -25px rgba(43, 36, 32, 0.3);
             animation: fadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -136,34 +163,34 @@
         }
 
         .title-area {
-            margin-bottom: 80px;
+            margin-bottom: 40px;
         }
 
         .main-title {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 56px;
-            font-weight: 100;
-            letter-spacing: 0.8em;
-            color: #fff;
-            margin-left: 0.8em;
-            text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+            font-family: 'Shippori Mincho', serif;
+            font-size: 48px;
+            font-weight: 800;
+            letter-spacing: 0.3em;
+            color: var(--maroon);
+            margin-left: 0.3em;
         }
 
         .sub-title {
-            font-size: 11px;
-            letter-spacing: 1.2em;
-            color: var(--accent);
+            font-family: 'Noto Sans JP', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.5em;
+            color: var(--ink-soft);
             text-transform: uppercase;
-            margin-top: 20px;
-            opacity: 0.8;
+            margin-top: 16px;
         }
 
         .instruction-card {
-            background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            padding: 40px;
-            border-radius: 24px;
-            margin-bottom: 50px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 28px 32px;
+            border-radius: 8px;
+            margin-bottom: 36px;
             text-align: left;
         }
 
@@ -171,58 +198,60 @@
             display: flex;
             align-items: center;
             gap: 24px;
-            margin-bottom: 24px;
+            margin-bottom: 20px;
         }
 
         .instruction-item:last-child { margin-bottom: 0; }
 
         .num {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 11px;
-            color: var(--accent);
+            font-family: 'Shippori Mincho', serif;
+            font-size: 13px;
+            color: var(--gold);
             width: 30px;
-            font-weight: 400;
+            font-weight: 700;
         }
 
         .desc {
+            font-family: 'Noto Sans JP', sans-serif;
             font-size: 14px;
-            color: rgba(255, 255, 255, 0.5);
-            font-weight: 300;
+            color: var(--ink-soft);
+            font-weight: 400;
             line-height: 1.6;
         }
 
         .btn-start {
-            background: #fff;
-            color: #000;
-            padding: 24px 80px;
-            border-radius: 50px;
+            background: linear-gradient(180deg, var(--maroon), var(--maroon-dark));
+            color: #fff5e8;
+            padding: 18px 56px;
+            border-radius: 999px;
+            font-family: 'Noto Sans JP', sans-serif;
             font-size: 13px;
             font-weight: 700;
-            letter-spacing: 0.4em;
-            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+            letter-spacing: 0.2em;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             border: none;
             cursor: pointer;
-            text-transform: uppercase;
+            box-shadow: 0 10px 24px -8px rgba(122, 0, 0, 0.45);
         }
 
         .btn-start:hover {
-            background: var(--accent);
             transform: translateY(-2px);
-            box-shadow: 0 20px 50px rgba(169, 122, 31, 0.35);
+            box-shadow: 0 16px 32px -8px rgba(122, 0, 0, 0.55);
         }
 
         .btn-share {
-            background: transparent;
-            color: #fff;
-            padding: 22px 40px;
-            border-radius: 50px;
-            font-size: 11px;
-            font-weight: 400;
-            letter-spacing: 0.2em;
-            transition: all 0.3s;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--surface);
+            color: var(--ink-soft);
+            padding: 16px 32px;
+            border-radius: 999px;
+            font-family: 'Noto Sans JP', sans-serif;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            transition: all 0.25s;
+            border: 1px solid var(--border);
             cursor: pointer;
-            text-transform: uppercase;
+            box-shadow: 0 4px 12px -6px rgba(43, 36, 32, 0.15);
             margin-left: 10px;
             display: inline-flex;
             align-items: center;
@@ -230,56 +259,81 @@
         }
 
         .btn-share:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            border-color: var(--maroon);
+            color: var(--maroon);
         }
 
         .difficulty-selector {
             display: flex;
-            gap: 12px;
+            gap: 10px;
             justify-content: center;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
         }
 
         .diff-btn {
-            background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.3);
-            padding: 10px 20px;
-            border-radius: 30px;
-            font-size: 9px;
-            font-family: 'JetBrains Mono', monospace;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--ink-soft);
+            padding: 8px 18px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-family: 'Noto Sans JP', sans-serif;
+            font-weight: 500;
             cursor: pointer;
-            transition: all 0.3s;
-            letter-spacing: 0.2em;
+            transition: all 0.25s;
+            letter-spacing: 0.15em;
+        }
+
+        .diff-btn:hover {
+            border-color: var(--gold-soft);
+            color: var(--ink);
         }
 
         .diff-btn.active {
-            border-color: rgba(255, 255, 255, 0.2);
-            color: #fff;
-            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--maroon);
+            color: #fff5e8;
+            background: linear-gradient(180deg, var(--maroon), var(--maroon-dark));
         }
 
-        /* キーボード操作時の既定の青いアウトラインは、この暗い画面では浮いて見えるため */
+        /* フォーカスリングを紙面のトーンに合わせる */
         button:focus-visible {
-            outline: 2px solid var(--accent);
+            outline: 2px solid var(--maroon);
             outline-offset: 3px;
         }
+
+        /* Tailwind CDN(実行時JIT)が読み込めない環境でもレイアウトが崩れない
+           ように、実際に使用しているユーティリティクラスだけ同じ値で
+           フォールバック定義しておく。Tailwindが読み込めた場合は同値なので
+           見た目に影響しない。 */
+        .text-right { text-align: right; }
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .ml-1 { margin-left: 0.25rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mb-10 { margin-bottom: 2.5rem; }
+        .mb-16 { margin-bottom: 4rem; }
+        .text-9xl { font-size: 8rem; line-height: 1; }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .gap-4 { gap: 1rem; }
     </style>
 </head>
 <body>
 
 <div id="canvas-wrapper">
     <canvas id="gameCanvas"></canvas>
-    
+    <span class="corner-mark tl"></span>
+    <span class="corner-mark br"></span>
+
     <div class="hud">
         <div class="stat-group">
             <span class="stat-label">Coverage</span>
-            <span class="stat-value"><span id="coverage">0</span><small class="text-xs ml-1 opacity-40">%</small></span>
+            <span class="stat-value"><span id="coverage">0</span><small class="text-xs ml-1" style="color:var(--ink-faint);">%</small></span>
         </div>
         <div class="stat-group text-right">
             <span class="stat-label">Remaining</span>
-            <span class="stat-value"><span id="timer">30.0</span><small class="text-xs ml-1 opacity-40">s</small></span>
+            <span class="stat-value"><span id="timer">30.0</span><small class="text-xs ml-1" style="color:var(--ink-faint);">s</small></span>
         </div>
     </div>
 
@@ -291,11 +345,13 @@
 <!-- START MODAL -->
 <div id="start-modal" class="modal">
     <div class="modal-inner">
+        <span class="corner-mark tl"></span>
+        <span class="corner-mark br"></span>
         <div class="title-area">
             <h1 class="main-title">BUTTER</h1>
             <p class="sub-title">究極のトースト職人体験</p>
         </div>
-        
+
         <div class="instruction-card">
             <div class="instruction-item">
                 <span class="num">01</span>
@@ -324,10 +380,12 @@
 <!-- RESULT MODAL -->
 <div id="result-modal" class="modal" style="display: none;">
     <div class="modal-inner">
+        <span class="corner-mark tl"></span>
+        <span class="corner-mark br"></span>
         <span class="stat-label mb-4">Final Coverage</span>
-        <div id="result-score" class="text-9xl font-thin text-white mb-10">0%</div>
-        <div id="result-rank" class="stat-label mb-16 text-white opacity-60">ANALYSIS COMPLETE</div>
-        
+        <div id="result-score" class="text-9xl mb-10" style="font-family:'Shippori Mincho',serif; font-weight:800; color:var(--maroon); line-height:1;">0%</div>
+        <div id="result-rank" class="stat-label mb-16" style="color:var(--ink-soft);">ANALYSIS COMPLETE</div>
+
         <div class="flex items-center justify-center gap-4">
             <button onclick="resetGame()" class="btn-start">もう一度焼く</button>
             <button onclick="shareOnX()" class="btn-share">
