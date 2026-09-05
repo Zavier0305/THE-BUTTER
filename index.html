@@ -349,10 +349,37 @@
     let bonusItems = [];
     let meltSpeed = 4.2;
     let finalScore = 0;
+    // getCoverage()は毎回全ピクセルをgetImageDataで読むため重い。
+    // 表示上は毎フレーム(60fps)更新する必要がないので間引く。
+    let coverageCheckTimer = 0;
+    let cachedCoverage = 0;
     let finalRankText = "";
 
     const paintCanvas = document.createElement('canvas');
     const pCtx = paintCanvas.getContext('2d');
+
+    // トーストの焼き色グラデーション+粒々のテクスチャは、toastの位置・
+    // サイズが変わらない限り毎フレーム同じ絵になるのに、毎フレーム
+    // (60fps)グラデーション生成+800個の円をfillし直していて重かった。
+    // resize()の時に1回だけ描いてキャッシュし、毎フレームはdrawImageで
+    // 使い回す。
+    const toastSurfaceCanvas = document.createElement('canvas');
+    const tsCtx = toastSurfaceCanvas.getContext('2d');
+    function renderToastSurface() {
+        toastSurfaceCanvas.width = canvas.width;
+        toastSurfaceCanvas.height = canvas.height;
+        const grad = tsCtx.createRadialGradient(canvas.width/2, canvas.height/2, toast.w/10, canvas.width/2, canvas.height/2, toast.w * 0.7);
+        grad.addColorStop(0, '#fffde7'); grad.addColorStop(0.6, '#fff9c4'); grad.addColorStop(0.85, '#ffe082'); grad.addColorStop(1, '#ffb74d');
+        tsCtx.fillStyle = grad;
+        tsCtx.fillRect(0, 0, toastSurfaceCanvas.width, toastSurfaceCanvas.height);
+
+        for (let i = 0; i < 800; i++) {
+            const rx = toast.x + (Math.sin(i * 17) * 0.5 + 0.5) * toast.w;
+            const ry = toast.y + (Math.cos(i * 13) * 0.5 + 0.5) * toast.h;
+            tsCtx.fillStyle = i % 3 === 0 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.3)';
+            tsCtx.beginPath(); tsCtx.arc(rx, ry, 0.9, 0, Math.PI * 2); tsCtx.fill();
+        }
+    }
 
     function setDifficulty(multiplier) {
         meltSpeed = 4.2 * multiplier;
@@ -376,10 +403,31 @@
         
         paintCanvas.width = canvas.width;
         paintCanvas.height = canvas.height;
-        
+        updateToastPath();
+        renderToastSurface();
+
         if (canvas.width > 0 && canvas.height > 0) {
             calculateTotalPixels();
         }
+    }
+
+    // トーストの形はresize時にしか変わらないのに、毎フレーム(60fps)
+    // 新しいcanvasを作ってisPointInPath判定していたため重かった。
+    // 形状が変わった時だけPath2Dを作り直し、毎フレームは使い回す。
+    let toastPath = null;
+    function updateToastPath() {
+        toastPath = new Path2D();
+        const { x, y, w, h, radius: r } = toast;
+        toastPath.moveTo(x + r, y);
+        toastPath.quadraticCurveTo(x + w / 2, y - 20, x + w - r, y);
+        toastPath.quadraticCurveTo(x + w, y, x + w, y + r);
+        toastPath.quadraticCurveTo(x + w + 8, y + h / 2, x + w, y + h - r);
+        toastPath.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        toastPath.lineTo(x + r, y + h);
+        toastPath.quadraticCurveTo(x, y + h, x, y + h - r);
+        toastPath.quadraticCurveTo(x - 8, y + h / 2, x, y + r);
+        toastPath.quadraticCurveTo(x, y, x + r, y);
+        toastPath.closePath();
     }
 
     function calculateTotalPixels() {
@@ -485,12 +533,7 @@
         
         if (butter.size < 1) endGame("EXHAUSTED", "BUTTER DEPLETED");
         
-        const checkCanvas = document.createElement('canvas');
-        checkCanvas.width = canvas.width;
-        checkCanvas.height = canvas.height;
-        const checkCtx = checkCanvas.getContext('2d');
-        drawToastShape(checkCtx, toast.x, toast.y, toast.w, toast.h, toast.radius);
-        if (!checkCtx.isPointInPath(butter.x, butter.y)) {
+        if (!ctx.isPointInPath(toastPath, butter.x, butter.y)) {
             endGame("OUT OF BOUNDS", "STAY ON THE BREAD");
         }
 
@@ -520,8 +563,14 @@
 
         timeLeft -= dt;
         timerEl.innerText = Math.max(0, timeLeft).toFixed(1);
-        if (timeLeft <= 0) endGame("COMPLETE", getRank(getCoverage()));
-        coverageEl.innerText = getCoverage();
+        if (timeLeft <= 0) { endGame("COMPLETE", getRank(getCoverage())); return; }
+
+        coverageCheckTimer += dt;
+        if (coverageCheckTimer >= 0.15) {
+            coverageCheckTimer = 0;
+            cachedCoverage = getCoverage();
+        }
+        coverageEl.innerText = cachedCoverage;
     }
 
     function getCoverage() {
@@ -591,17 +640,7 @@
         const m = 14;
         drawToastShape(ctx, toast.x + m, toast.y + m, toast.w - m*2, toast.h - m*2, toast.radius - 8);
         ctx.clip();
-        const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, toast.w/10, canvas.width/2, canvas.height/2, toast.w * 0.7);
-        grad.addColorStop(0, '#fffde7'); grad.addColorStop(0.6, '#fff9c4'); grad.addColorStop(0.85, '#ffe082'); grad.addColorStop(1, '#ffb74d'); 
-        ctx.fillStyle = grad;
-        ctx.fillRect(0,0,canvas.width,canvas.height);
-
-        for(let i=0; i<800; i++) {
-            const rx = toast.x + (Math.sin(i * 17) * 0.5 + 0.5) * toast.w;
-            const ry = toast.y + (Math.cos(i * 13) * 0.5 + 0.5) * toast.h;
-            ctx.fillStyle = i % 3 === 0 ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.3)';
-            ctx.beginPath(); ctx.arc(rx, ry, Math.random() * 1.8, 0, Math.PI*2); ctx.fill();
-        }
+        ctx.drawImage(toastSurfaceCanvas, 0, 0);
         ctx.drawImage(paintCanvas, 0, 0);
         ctx.restore();
 
