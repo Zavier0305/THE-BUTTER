@@ -357,6 +357,7 @@
     let timeLeft = 30;
     let gameActive = false;
     let lastTime = 0;
+    let loopRunning = false; // 「もう一度焼く」等の連打でrequestAnimationFrameのループが多重に走るのを防ぐ
     let totalToastPixels = 1;
     let bonusItems = [];
     let meltSpeed = 4.2;
@@ -495,7 +496,10 @@
         resultModal.style.display = 'none';
         pCtx.clearRect(0, 0, paintCanvas.width, paintCanvas.height);
         lastTime = performance.now();
-        requestAnimationFrame(gameLoop);
+        if (!loopRunning) {
+            loopRunning = true;
+            requestAnimationFrame(gameLoop);
+        }
     }
 
     function handleInput(clientX, clientY) {
