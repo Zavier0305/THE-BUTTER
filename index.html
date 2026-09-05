@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>THE BUTTER | 究極のトースト職人</title>
+    <meta name="description" content="ドラッグでバターを操り、トーストにどこまで均一に塗り広げられるかを競うゲーム。結果はXでシェアできます。">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://the-butter.vercel.app/">
+    <meta property="og:title" content="THE BUTTER | 究極のトースト職人">
+    <meta property="og:description" content="ドラッグでバターを操り、トーストにどこまで均一に塗り広げられるかを競うゲーム。結果はXでシェアできます。">
+    <meta name="twitter:card" content="summary">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;300;400;700&family=JetBrains+Mono:wght@100;400&family=Noto+Sans+JP:wght@100;300;700&family=Shippori+Mincho:wght@700&display=swap');
@@ -617,7 +623,10 @@
             `評価: ${finalRankText}\n\n` +
             `#THEBUTTER #トースト職人 #ToastArt`
         );
-        const url = `https://twitter.com/intent/tweet?text=${text}`;
+        // urlパラメータが無いと、投稿されるツイートにゲームへのリンクが
+        // 一切含まれず、シェアしても誰も遊びに来られなかった
+        const gameUrl = encodeURIComponent('https://the-butter.vercel.app/');
+        const url = `https://twitter.com/intent/tweet?text=${text}&url=${gameUrl}`;
         window.open(url, '_blank');
     }
 
