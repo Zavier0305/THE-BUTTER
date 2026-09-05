@@ -623,7 +623,13 @@
         }
     }
 
-    window.addEventListener('resize', resize);
+    // resize()はcanvas/paintCanvasの再生成(塗った跡が全部消える)とtoastの
+    // 再配置を伴う。モバイルではアドレスバーの表示/非表示だけでも
+    // window.innerHeightが変わりresizeイベントが発火するため、対策なしだと
+    // プレイ中に突然塗った跡が消えたり、バターの座標がトーストの外に
+    // 出て理不尽に「OUT OF BOUNDS」で終了することがあった。
+    // ラウンド中はリサイズを無視し、開始前・終了後のみ反映する。
+    window.addEventListener('resize', () => { if (!gameActive) resize(); });
     window.onload = () => { resize(); draw(); };
 </script>
 
