@@ -296,6 +296,36 @@
             background: linear-gradient(180deg, var(--maroon), var(--maroon-dark));
         }
 
+        /* 常設ヘルプボタン(?)。canvas-wrapper/HUD/gauge-containerと重ならない
+           ようビューポート隅に固定配置。配色・ホバー挙動はbtn-shareを踏襲。 */
+        .btn-help {
+            position: fixed;
+            top: 16px;
+            right: 16px;
+            z-index: 150;
+            width: 40px;
+            height: 40px;
+            border-radius: 999px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--maroon);
+            font-family: 'Shippori Mincho', serif;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px -6px rgba(43, 36, 32, 0.15);
+            transition: all 0.25s;
+        }
+
+        .btn-help:hover {
+            transform: translateY(-2px);
+            border-color: var(--maroon);
+            box-shadow: 0 8px 18px -6px rgba(43, 36, 32, 0.25);
+        }
+
         /* フォーカスリングを紙面のトーンに合わせる */
         button:focus-visible {
             outline: 2px solid var(--maroon);
@@ -377,6 +407,43 @@
     </div>
 </div>
 
+<!-- TUTORIAL MODAL(初回自動表示 + ?ボタンでいつでも再表示) -->
+<div id="tutorial-modal" class="modal" style="display: none;">
+    <div class="modal-inner">
+        <span class="corner-mark tl"></span>
+        <span class="corner-mark br"></span>
+        <div class="title-area">
+            <h1 class="main-title">遊び方</h1>
+            <p class="sub-title">はじめての方へ</p>
+        </div>
+
+        <div class="instruction-card">
+            <div class="instruction-item">
+                <span class="num">01</span>
+                <span class="desc">バターの近くを押さえたまま指(マウス)を動かすと、バターがその位置へ引き寄せられる。動かし続けてトーストの上を導こう</span>
+            </div>
+            <div class="instruction-item">
+                <span class="num">02</span>
+                <span class="desc">バターが通った場所にトーストの色が塗られていく。30秒以内にできるだけ均一に塗り広げよう</span>
+            </div>
+            <div class="instruction-item">
+                <span class="num">03</span>
+                <span class="desc">バターは時間とともに溶けて小さくなる。0になる前に白い粒子に触れて補充しよう</span>
+            </div>
+            <div class="instruction-item">
+                <span class="num">04</span>
+                <span class="desc">パンの「耳」の外にバターが出てしまうと、その場で即終了になるので注意</span>
+            </div>
+            <div class="instruction-item">
+                <span class="num">05</span>
+                <span class="desc">SOFT/NORMAL/HARDでバターが溶ける速さが変わる。塗り面積(Coverage)がそのまま結果になり、Xでシェアできる</span>
+            </div>
+        </div>
+
+        <button onclick="closeTutorial()" class="btn-start">わかった!はじめる</button>
+    </div>
+</div>
+
 <!-- RESULT MODAL -->
 <div id="result-modal" class="modal" style="display: none;">
     <div class="modal-inner">
@@ -396,6 +463,9 @@
     </div>
 </div>
 
+<!-- 常設ヘルプボタン。プレイ中も画面隅から遊び方をいつでも再確認できる -->
+<button id="help-btn" class="btn-help" onclick="openTutorial()" aria-label="遊び方を表示">?</button>
+
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
@@ -404,7 +474,20 @@
     const gaugeFill = document.getElementById('gauge-fill');
     const startModal = document.getElementById('start-modal');
     const resultModal = document.getElementById('result-modal');
-    
+    const tutorialModal = document.getElementById('tutorial-modal');
+    const TUTORIAL_SEEN_KEY = 'thebutter_tutorial_seen';
+
+    // チュートリアルモーダルの開閉。ゲームロジックには一切関与しない
+    // 純粋な追加UIで、初回訪問時の自動表示と「?」ボタンからの再表示を担う。
+    function openTutorial() {
+        tutorialModal.style.display = 'flex';
+    }
+
+    function closeTutorial() {
+        tutorialModal.style.display = 'none';
+        try { localStorage.setItem(TUTORIAL_SEEN_KEY, '1'); } catch (e) { /* localStorage不可でも致命的ではない */ }
+    }
+
     // カラー設定
     const COLOR_BUTTER_FRESH = '#fff9c4'; 
     const COLOR_BUTTER_MELT = '#fbc02d';  
@@ -746,7 +829,13 @@
     // 出て理不尽に「OUT OF BOUNDS」で終了することがあった。
     // ラウンド中はリサイズを無視し、開始前・終了後のみ反映する。
     window.addEventListener('resize', () => { if (!gameActive) resize(); });
-    window.onload = () => { resize(); draw(); };
+    window.onload = () => {
+        resize();
+        draw();
+        try {
+            if (!localStorage.getItem(TUTORIAL_SEEN_KEY)) openTutorial();
+        } catch (e) { /* localStorage不可の場合は自動表示をスキップ(?ボタンから開ける) */ }
+    };
 </script>
 
 </body>
